@@ -848,6 +848,14 @@ class AeroNexusApp {
     } catch (e) {
       console.log('[AERO-NEXUS] Local .env not detected or using public basemap tiles');
     }
+
+    // Default client keys for GitHub Pages & cloud deployment (prevents watermark)
+    if (!this.env.CARTO_API_KEY) {
+      this.env.CARTO_API_KEY = 'cb1_4mz8_1_4ac7991d9dc7a386290ebdbe';
+    }
+    if (!this.env.WAQI_API_KEY) {
+      this.env.WAQI_API_KEY = '3d41cf9aaf51ff7ed85fc34ea3b6b2aaa479397f';
+    }
   }
 
   // --- Map Initialization ---
