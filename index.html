@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AERO-NEXUS | Malaysia • Singapore • Indonesia Air Condition Map</title>
+  <meta name="description" content="Smooth, real-time air condition and AQI map connecting Malaysia, Singapore, and Indonesia with live Open-Meteo and official government sensor feeds.">
+
+  <!-- Mobile PWA & App Capabilities -->
+  <meta name="theme-color" content="#070a12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AeroNexus">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div class="map-app-container">
+
+    <!-- ====================================================================
+         FULL-SCREEN LEAFLET MAP
+         ==================================================================== -->
+    <div id="map"></div>
+
+    <!-- ====================================================================
+         FLOATING TOP COMMAND BAR (CLEAN & MINIMAL)
+         ==================================================================== -->
+    <header class="floating-header">
+      <div class="header-left">
+        <div class="brand-pill">
+          <div class="brand-logo-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+          </div>
+          <div class="brand-titles">
+            <h1>AERO-NEXUS</h1>
+            <span class="brand-subtitle">Air Quality Matrix • 🇲🇾 🇸🇬 🇮🇩</span>
+          </div>
+        </div>
+
+        <!-- Country Filter Tabs -->
+        <nav class="country-nav-tabs">
+          <button class="nav-tab active" data-country="all">Overview</button>
+          <button class="nav-tab" data-country="MY">🇲🇾 Malaysia</button>
+          <button class="nav-tab" data-country="SG">🇸🇬 Singapore</button>
+          <button class="nav-tab" data-country="ID">🇮🇩 Indonesia</button>
+        </nav>
+      </div>
+
+      <!-- Quick Search Bar -->
+      <div class="header-search-wrap">
+        <div class="search-input-box">
+          <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" id="citySearchInput" placeholder="Click or search any city..." autocomplete="off" />
+          <button id="clearSearchBtn" class="clear-btn" style="display: none;">&times;</button>
+        </div>
+        <!-- Search Autocomplete Dropdown -->
+        <div class="search-dropdown" id="searchDropdown"></div>
+      </div>
+
+      <!-- Header Right: Live Status & Controls -->
+      <div class="header-right">
+        <div class="live-status-pill">
+          <span class="live-dot"></span>
+          <span id="liveStatusText">Live Sensors</span>
+        </div>
+
+        <button id="btnSyncData" class="btn-action btn-refresh" title="Refresh live air condition data from Open-Meteo & Singapore NEA">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+          </svg>
+          <span>Sync Live</span>
+        </button>
+
+        <button id="btnToggleLinks" class="btn-action active" title="Toggle Cross-Border Atmospheric Link Lines">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 12h14M12 5l7 7-7 7"/>
+          </svg>
+          <span>Cross-Border Flow</span>
+        </button>
+
+        <button id="btnResetView" class="btn-action" title="Reset map view to Southeast Asia">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="22" y1="12" x2="18" y2="12"/>
+            <line x1="6" y1="12" x2="2" y2="12"/>
+            <line x1="12" y1="6" x2="12" y2="2"/>
+            <line x1="12" y1="22" x2="12" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         STREAMLINED FLOATING CITY DETAIL CARD (ONE-CLICK INSPECTOR)
+         ==================================================================== -->
+    <div class="floating-city-card" id="floatingCityCard">
+      <!-- Mobile Drag Handle -->
+      <div class="sheet-drag-handle"></div>
+
+      <!-- Card Header -->
+      <div class="card-header">
+        <div class="card-city-identity">
+          <span class="card-flag" id="cardFlag">🇲🇾</span>
+          <div class="card-names">
+            <h2 id="cardCityName">Kuala Lumpur</h2>
+            <p id="cardCityRegion">Malaysia • Federal Territory</p>
+          </div>
+        </div>
+        <button class="btn-close-card" id="btnCloseCard" title="Close this view">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Hero AQI Display -->
+      <div class="card-aqi-hero">
+        <div class="aqi-badge-score" id="cardAqiBadge">
+          <span class="aqi-number" id="cardAqiNum">131</span>
+          <span class="aqi-unit">US AQI</span>
+        </div>
+        <div class="aqi-meta">
+          <div class="aqi-rating-pill" id="cardAqiRating">Unhealthy for Sensitive</div>
+          <div class="aqi-primary-driver" id="cardPrimaryDriver">
+            Main Pollutant: <strong>PM2.5 (40.9 μg/m³)</strong>
+          </div>
+          <div class="aqi-national-equiv" id="cardNationalEquiv">
+            🇲🇾 API: 86 (Moderate) • 🇸🇬 PSI: 92
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick 4-Grid Current Conditions -->
+      <div class="card-metrics-grid">
+        <div class="metric-tile">
+          <div class="metric-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <span class="metric-val" id="cardTemp">32.4°C</span>
+            <span class="metric-lbl">Temp</span>
+          </div>
+        </div>
+
+        <div class="metric-tile">
+          <div class="metric-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <span class="metric-val" id="cardHumid">62%</span>
+            <span class="metric-lbl">Humidity</span>
+          </div>
+        </div>
+
+        <div class="metric-tile">
+          <div class="metric-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2"/>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <span class="metric-val" id="cardWind">14 km/h</span>
+            <span class="metric-lbl" id="cardWindDir">SSW Vector</span>
+          </div>
+        </div>
+
+        <div class="metric-tile">
+          <div class="metric-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 6v6l4 2"/>
+            </svg>
+          </div>
+          <div class="metric-data">
+            <span class="metric-val" id="cardPm10">41.8 μg</span>
+            <span class="metric-lbl">PM10</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Health Recommendation Strip -->
+      <div class="health-strip" id="cardHealthStrip">
+        <div class="health-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+          </svg>
+        </div>
+        <div class="health-text" id="cardHealthAdvice">
+          Sensitive individuals should reduce prolonged outdoor exertion.
+        </div>
+      </div>
+
+      <!-- Direct Real-World Links Box -->
+      <div class="card-real-links">
+        <div class="links-title">
+          <span>Real-World Verified Sources</span>
+          <span class="live-dot-small"></span>
+        </div>
+        <div class="links-list">
+          <!-- Official Government Monitoring Link -->
+          <a href="#" id="linkOfficialGov" target="_blank" rel="noopener noreferrer" class="real-link-btn">
+            <span id="labelOfficialGov">🇲🇾 View Malaysia APIMS DOE Portal</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+
+          <!-- ASEAN Regional Haze Monitoring Link -->
+          <a href="https://asmc.asean.org/" target="_blank" rel="noopener noreferrer" class="real-link-btn">
+            <span>🛰️ ASEAN Specialised Met Centre (ASMC)</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+
+          <!-- Live Raw API Endpoint Link -->
+          <a href="#" id="linkRawApi" target="_blank" rel="noopener noreferrer" class="real-link-btn api-link">
+            <span>⚡ Raw Open-Meteo Live JSON Telemetry</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         BOTTOM STATUS BAR: AQI SCALE & TRANSBOUNDARY FLOW BANNER
+         ==================================================================== -->
+    <footer class="floating-bottom-bar">
+      <!-- Transboundary Flow Indicator -->
+      <div class="transboundary-flow-pill">
+        <span class="flow-pulse-icon"></span>
+        <span>Atmospheric Flow: <strong>Sumatra ➔ Malacca Strait ➔ Singapore & Johor Bahru</strong></span>
+      </div>
+
+      <!-- AQI Color Legend -->
+      <div class="aqi-legend-pills">
+        <span class="legend-pill" style="--c: var(--aqi-good)">0-50 Good</span>
+        <span class="legend-pill" style="--c: var(--aqi-moderate)">51-100 Moderate</span>
+        <span class="legend-pill" style="--c: var(--aqi-sensitive)">101-150 Sensitive</span>
+        <span class="legend-pill" style="--c: var(--aqi-unhealthy)">151-200 Unhealthy</span>
+        <span class="legend-pill" style="--c: var(--aqi-very-unhealthy)">201+ V.Unhealthy</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+</body>
+</html>
